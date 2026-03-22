@@ -320,19 +320,14 @@ hiddenstate_jamllm = torch.load(root + f"forward_info_jamllm_{model_name}.pt")
 hiddenstate_normal = torch.load(root + f'forward_info_normal_{model_name}.pt')
 hiddenstate_FS = torch.load(root + f"forward_info_FS_{model_name}.pt")
 hiddenstate_JBV = torch.load(root + f"forward_info_JBV_{model_name}.pt")
-# print(hiddenstate_JBV[0])
-# raise
-# raise
-# map_idx_jamllm = torch.load(f'/storage/gyy/mllm/JailbreakingAttack/adv_images/attack_success_{model_name}.pt')
-# map_avg_jbv = np.load(f'/storage/gyy/mllm/LLM_EXPLANATION/masks/{model_name}/jbv_avg_{layer_idx}.pt')
+
 hiddenstate_mmbench = torch.load(root + f"forward_info_mmbench_{model_name}.pt")
 hiddenstate_mmvet = torch.load(root + f"forward_info_mmvet_{model_name}.pt")
 
 layer_nums = len(hiddenstate_jamllm[0]['hidden_states'])
 attack_type = 'jbv'
 surffix = '_sorry'
-# target_layer_all = [8, 11, 9, 10, 16, 5]
-# target_layer_all = [1, 2, 3,4,5,6,7,8,9,11,12,13,14, 16,17,18,19,20,21,]
+
 if model_name == 'janus':
     target_layer_all = [21, 18, 20, 16, 17, 19, 5, 8, 13, 14, 9, 4, 6, 7, 11, 12, 3, 1, 2]
 elif model_name == 'llava':
@@ -363,25 +358,17 @@ for thre in [   0.3, 0.4, 0.5, 0.6 ]:
     y_mmvet = []
     y_normal = []
     for k in range(1, len(target_layer_all)+1):
-    # k = 10
         target_layer = target_layer_all[:k]
-    # target_layer = target_layer_all[(k-1):k]
-
-    # for topk in range(1,10):
-        # print(len(hiddenstate_jamllm))
-        # raise
         random_items = list(hiddenstate_JBV.items())[:300]
         rand_hiddenstate = dict(random_items)
         svm_model, acc_JBV_svm, mlp_model, scaler, acc_jbv_mlp = train_with_reference([rand_hiddenstate, hiddenstate_normal],layer_nums, data_type=['jbv', ], target_layers=target_layer, alpha=alpha, top_k=topk, thre=thre, surffix=surffix)
-        # svm_model, acc_JBV_svm, = train(hiddenstate_JBV, layer_nums, attack_type=attack_type, target_layers=target_layer, alpha=alpha, top_k=topk, thre=thre, surffix=surffix)
-        # svm_model, acc_jamllm_svm, = train(hiddenstate_jamllm, layer_nums, attack_type=attack_type, target_layers=target_layer, alpha=alpha, top_k=topk, thre=thre)
         acc_fig_svm, acc_fig_mlp = test_with_reference([hiddenstate_FS], svm_model,  mlp_model, scaler, layer_nums , data_type=['jbv', ], label=0, target_layers=target_layer, alpha=alpha, top_k=topk, thre=thre, surffix=surffix)
         acc_jamllm_svm, acc_jamllm_mlp = test_with_reference([hiddenstate_jamllm],svm_model, mlp_model, scaler, layer_nums, data_type=['jbv', ], label=0, target_layers=target_layer, alpha=alpha, top_k=topk, thre=thre, surffix=surffix)
         acc_JBV_svm, acc_JBV_mlp = test_with_reference([hiddenstate_JBV],svm_model,  mlp_model, scaler, layer_nums, data_type=['jbv', ], label=0, target_layers=target_layer, alpha=alpha, top_k=topk, thre=thre, surffix=surffix)
         acc_mmbench_svm, acc_mmbench_mlp = test_with_reference([hiddenstate_mmbench],svm_model,  mlp_model, scaler, layer_nums, data_type=['jbv', ], label=2, target_layers=target_layer, alpha=alpha, top_k=topk, thre=thre, surffix=surffix)
         acc_mmvet_svm, acc_mmvet_mlp = test_with_reference([hiddenstate_mmvet],svm_model,  mlp_model, scaler, layer_nums, data_type=['jbv', ], label=2, target_layers=target_layer, alpha=alpha, top_k=topk, thre=thre, surffix=surffix)
         acc_normal_svm, acc_normal_mlp = test_with_reference([hiddenstate_normal],svm_model,  mlp_model, scaler, layer_nums, data_type=['jbv', ], label=2, target_layers=target_layer, alpha=alpha, top_k=topk, thre=thre, surffix=surffix)
-        # a = 0
+
         if acc_JBV_svm >= max_JBV:
             max_JBV = acc_JBV_svm
             JBV_state = (target_layer, thre)
@@ -401,13 +388,6 @@ for thre in [   0.3, 0.4, 0.5, 0.6 ]:
             max_normal = acc_normal_svm
             normal_state = (target_layer, thre)     
         
-        # # print(a)
-        # y_fig.append(min(acc_fig_svm-a,1))
-        # y_jamllm.append(min(acc_jamllm_svm-a,1))
-        # y_jbv.append(min(acc_JBV_svm-a,1))
-        # y_mmbench.append(min(acc_mmbench_svm-a,1))
-        # y_mmvet.append(min(acc_mmvet_svm-a,1))
-        # y_normal.append(min(acc_normal_svm-a,1))
         print(f'svm: target_layer: {len(target_layer)}, top k: {thre}, '
               f'acc_jbv: {round(acc_JBV_svm,3)}; acc_fig: {round(acc_fig_svm,3)}; ' 
                   f'acc_jamllm: {round(acc_jamllm_svm,3)}; acc_mmbench: {round(acc_mmbench_svm,3)}, '
@@ -418,27 +398,7 @@ for thre in [   0.3, 0.4, 0.5, 0.6 ]:
                   f'acc_jamllm: {round(acc_jamllm_mlp,3)}; acc_mmbench: {round(acc_mmbench_mlp,3)}, '
                      f'acc_mmvet: {round(acc_mmvet_mlp,3)}, acc_normal: {round(acc_normal_mlp,3)}')
     
-#     results_k_t.append([min([y_normal[j], y_jbv[j], y_jamllm[j], y_mmbench[j], y_mmvet[j], y_fig[j]]) for j in range(len(y_normal))])
-    
-#     plt.plot(list(range(len(target_layer_all))), [min([y_normal[j], y_jbv[j], y_jamllm[j], y_mmbench[j], y_mmvet[j], y_fig[j]]) for j in range(len(y_normal))])
 
-# plt.legend([ 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6 ])
-# plt.savefig(f'{model_name}.png')
-# torch.save(results_k_t, f'{model_name}.pt')
-# raise
-        
-# raise
-# plt.figure()
-# plt.scatter(x=target_layer_all, y=y_normal)
-# plt.scatter(x=target_layer_all, y=y_jbv)
-# plt.scatter(x=target_layer_all, y=y_jamllm)
-# plt.scatter(x=target_layer_all, y=y_mmbench)
-# plt.scatter(x=target_layer_all, y=y_mmvet)
-# plt.scatter(x=target_layer_all, y=y_fig)
-# plt.plot(target_layer_all,[min([y_normal[j], y_jbv[j], y_jamllm[j], y_mmbench[j], y_mmvet[j], y_fig[j]]) for j in range(len(y_normal))])
-# plt.legend(['worst case','normal','jbv', 'jamllm', 'mmbench','mmvet','fig'])
-# plt.savefig(f'vis/{model_name}_FS_mask')
-# raise
 print('JBV:', max_JBV, JBV_state)
 print('Fig:', max_fig, fig_state)
 print('jamllm:', max_jamllm, jamllm_state)
