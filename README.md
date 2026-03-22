@@ -114,8 +114,3 @@ Do not use this software to develop or deploy harmful applications. Follow your 
 
 If you use this code, please cite the ICLR 2026 paper (title as above). Use the BibTeX entry from the camera-ready PDF when available.
 
----
-
-## License
-
-If the authors provide a `LICENSE` file, follow that document. Otherwise, assume all rights reserved until stated otherwise by the authors.
