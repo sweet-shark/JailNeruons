@@ -35,39 +35,6 @@ def process_data(forward_info, topk_indices, layer_idx,):
 
     return features, labels
 
-def train(hiddenstate_AE, layer_nums, attack_type, top_k = 10, target_layers=None, alpha=1, thre=None, surffix=''):
-    features_ae_alllayer = []
-    if target_layers is None:
-        target_layers = range(0, layer_nums-1)
-    for j in target_layers:
-        mask_avg = np.load(f'/storage/gyy/mllm/LLM_EXPLANATION/inv_mask/{model_name}/{attack_type}_avg_{j}_alpha{alpha}{surffix}.npy')
-        if thre is None:
-            if top_k:
-                topk_indices = np.argsort(mask_avg)[-top_k:]
-            else:
-                raise
-        else:
-            topk_indices = np.where(mask_avg>=thre)[0]
-        features_ae, labels_ae = process_data(hiddenstate_AE,topk_indices, j,)
-        # print(features_ae)
-        # raise
-        features_ae_alllayer.append(features_ae)
-    features_ae_alllayer = np.concatenate(features_ae_alllayer, axis=1)
-    
-    X_train, X_test, y_train, y_test = train_test_split(
-        features_ae_alllayer, labels_ae, test_size=0.3, random_state=42
-    )
-
-    svm_model = OneClassSVM(kernel="rbf", nu=0.05)
-    # print(X_train)
-    svm_model.fit(X_train)
-    svm_test_AE = svm_model.predict(X_test)  
-    # print(svm_test_AE)
-    # raise
-    svm_AE_acc = sum(svm_test_AE == 1)/len(y_test)
-    
-    return svm_model, svm_AE_acc
-
 def train_with_reference(hiddenstates, layer_nums, data_type, top_k = 10, target_layers=None, alpha=1, thre=None, surffix=''):
     if target_layers is None:
         target_layers = range(0, layer_nums-1)
@@ -80,7 +47,7 @@ def train_with_reference(hiddenstates, layer_nums, data_type, top_k = 10, target
         for j in target_layers:
             top_indices_all_data = []
             for data_t in data_type:
-                mask_avg = np.load(f'/storage/gyy/mllm/LLM_EXPLANATION/inv_mask/{model_name}/{data_t}_avg_{j}_alpha{alpha}{surffix}.npy')
+                mask_avg = np.load(f'/path/to/mask_avg')
                 if thre is None:
                     if top_k:
                         topk_indices = np.argsort(mask_avg)[-top_k:]
@@ -97,8 +64,6 @@ def train_with_reference(hiddenstates, layer_nums, data_type, top_k = 10, target
         features_all_data.append(features_all_layer)
     features_all_data = np.concatenate(features_all_data, axis=0)
     labels_all_data = np.concatenate(labels_all_data, axis=0)
-    print(features_all_data.shape)
-    # raise
     X_train, X_test, y_train, y_test = train_test_split(
         features_all_data, labels_all_data, test_size=0.5, random_state=42
     )
@@ -128,83 +93,6 @@ def train_with_reference(hiddenstates, layer_nums, data_type, top_k = 10, target
     # print(sum(svm_test == y_test)/len(y_test))
     # print(sum(mlp_test == y_test)/len(y_test))
     return svm_model, sum(svm_test == y_test)/len(y_test), mlp_model, scaler, sum(mlp_test == y_test)/len(y_test)
-
-def train_without_mask(hiddenstates, layer_nums, data_type, top_k = 10, target_layers=None, alpha=1, thre=None, surffix=''):
-    if target_layers is None:
-        target_layers = range(0, layer_nums-1)
-        
-    features_all_data = []
-    labels_all_data = []
-    
-    for hiddenstate in hiddenstates:
-        features_all_layer = []
-        for j in target_layers:
-            features_ae, labels_ae = process_data(hiddenstate, None, j, )
-            features_all_layer.append(features_ae)
-        labels_all_data.append(labels_ae)
-        features_all_layer = np.concatenate(features_all_layer, axis=1)
-        features_all_data.append(features_all_layer)
-    features_all_data = np.concatenate(features_all_data, axis=0)
-    labels_all_data = np.concatenate(labels_all_data, axis=0)
-    print(features_all_data.shape)
-    # raise
-    X_train, X_test, y_train, y_test = train_test_split(
-        features_all_data, labels_all_data, test_size=0.5, random_state=42
-    )
-    
-    svm_model = SVC(kernel="linear")
-    svm_model.fit(X_train, y_train)
-    
-    
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-    mlp_model = MLPClassifier(
-        hidden_layer_sizes=(100,),
-        max_iter=300,
-        alpha=0.01,
-        solver="adam",
-        verbose=0,
-        random_state=42,
-        learning_rate_init=0.01,
-    )
-    mlp_model.fit(X_train_scaled, y_train)
-    
-    svm_test = svm_model.predict(X_test)
-    # print(svm_test, y_test)
-    X_test_scaled = scaler.transform(X_test)
-    mlp_test = mlp_model.predict(X_test_scaled)
-    # print(sum(svm_test == y_test)/len(y_test))
-    # print(sum(mlp_test == y_test)/len(y_test))
-    return svm_model, sum(svm_test == y_test)/len(y_test), mlp_model, scaler, sum(mlp_test == y_test)/len(y_test)
-
-
-def test(test_data, svm_model, layer_nums, attack_type, top_k = 10, label = 1, target_layers=None, alpha=1, thre=None, surffix=''):
-    features_ae_alllayer = []
-    if target_layers is None:
-        target_layers = range(0, layer_nums-1)
-    for j in target_layers:
-        mask_avg = np.load(f'/storage/gyy/mllm/LLM_EXPLANATION/inv_mask/{model_name}/{attack_type}_avg_{j}_alpha{alpha}{surffix}.npy')
-        if thre is None:
-            if top_k:
-                topk_indices = np.argsort(mask_avg)[-top_k:]
-            else:
-                raise
-        else:
-            topk_indices = np.where(mask_avg>=thre)[0]
-        features_ae, labels_ae = process_data(test_data, topk_indices, j, )
-        features_ae_alllayer.append(features_ae)
-    features_ae_alllayer = np.concatenate(features_ae_alllayer, axis=1)
-    
-    X_test, y_test  = features_ae_alllayer, labels_ae, 
-
-    # svm_model.fit(X_train)
-    svm_test = svm_model.predict(X_test)  
-    # print(svm_test)
-    # raise
-    svm_test_acc = sum(svm_test == label)/len(y_test)
-    
-    return svm_test_acc
 
 
 def test_with_reference(hiddenstates, svm_model, mlp_model, scaler, layer_nums, data_type, top_k = 10, label = 1, target_layers=None, alpha=1, thre=None, surffix=''):
@@ -220,7 +108,7 @@ def test_with_reference(hiddenstates, svm_model, mlp_model, scaler, layer_nums, 
         for j in target_layers:
             top_indices_all_data = []
             for data_t in data_type:
-                mask_avg = np.load(f'/storage/gyy/mllm/LLM_EXPLANATION/inv_mask/{model_name}/{data_t}_avg_{j}_alpha{alpha}{surffix}.npy')
+                mask_avg = np.load(f'/path/to/mask_avg')
                 if thre is None:
                     if top_k:
                         topk_indices = np.argsort(mask_avg)[-top_k:]
@@ -253,39 +141,6 @@ def test_with_reference(hiddenstates, svm_model, mlp_model, scaler, layer_nums, 
     
     return results
 
-
-def test_without_mask(hiddenstates,svm_model, mlp_model, scaler, layer_nums, data_type, top_k = 10, label = 1, target_layers=None, alpha=1, thre=None, surffix=''):
-
-    if target_layers is None:
-        target_layers = range(0, layer_nums-1)
-    features_all_data = []
-    labels_all_data = []
-    
-    for hiddenstate in hiddenstates:
-        features_all_layer = []
-        for j in target_layers:
-            features_ae, labels_ae = process_data(hiddenstate, None, j,)
-            features_all_layer.append(features_ae)
-        labels_all_data.append(labels_ae)
-        features_all_layer = np.concatenate(features_all_layer, axis=1)
-        features_all_data.append(features_all_layer)
-    features_all_data = np.concatenate(features_all_data, axis=0)
-    labels_all_data = np.concatenate(labels_all_data, axis=0)
-    
-    X_test, y_test  = features_all_data, labels_all_data, 
-
-    results = []
-    if svm_model:
-        svm_test = svm_model.predict(X_test)  
-        svm_test_acc = sum(svm_test == label)/len(y_test)
-        results.append(svm_test_acc)
-    if mlp_model:
-        X_test_scaled = scaler.transform(X_test)
-        mlp_test = mlp_model.predict(X_test_scaled)
-        mlp_test_acc = sum(mlp_test == label)/len(y_test)
-        results.append(mlp_test_acc)
-    
-    return results
 
 
 device = torch.device("cuda:0")
@@ -305,13 +160,6 @@ attack_iters = 1000
 # round = "A"
 normal_inputs = get_data("./exp_data/normal_prompt.csv")
 
-print(
-    "+++++++++++++++++++++++++++++++++++++++++++++++Generate mprompt adv image+++++++++++++++++++++++++++++++++++++++++++"
-)
-
-out_csv = []
-train_total_jb, train_total_em = [], []
-
 outputs_set = {}
 model_name = 'llava'
 
@@ -327,16 +175,8 @@ hiddenstate_mmvet = torch.load(root + f"forward_info_mmvet_{model_name}.pt")
 layer_nums = len(hiddenstate_jamllm[0]['hidden_states'])
 attack_type = 'jbv'
 surffix = '_sorry'
+target_layer_all = list(range(25))
 
-if model_name == 'janus':
-    target_layer_all = [21, 18, 20, 16, 17, 19, 5, 8, 13, 14, 9, 4, 6, 7, 11, 12, 3, 1, 2]
-elif model_name == 'llava':
-    target_layer_all = [19, 21, 20, 16, 17, 18, 12, 14, 13, 8, 11, 6, 9, 5, 7, 3, 4, 2, 1]
-elif model_name == 'qwen':
-    target_layer_all = [18, 12, 14, 20, 13, 17, 19, 10, 11, 7, 15, 9, 21, 4, 6, 16, 5, 8, 2, 1, 3]
-elif model_name == 'minigpt4':
-    target_layer_all = [17, 12, 13, 14, 4, 2, 3, 16, 15, 5, 7, 11, 8, 18, 9, 19, 21, 6, 20, 22]
-    
 topk = 3
 alpha = 1
 thre = None
